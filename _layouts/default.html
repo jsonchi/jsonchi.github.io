@@ -5,39 +5,65 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
         <title>{{ page.title }}</title>
         <meta name="viewport" content="width=device-width">
-
-        <!-- syntax highlighting CSS -->
-        <link rel="stylesheet" href="/css/syntax.css">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="robots" content="index, follow">
+        <meta name="description" content="Chi Jingshuai's blog." />
+        <meta name="author" content="Chi Jingshuai" />
+        
 
         <!-- Custom CSS -->
         <link rel="stylesheet" href="/css/main.css">
-
+        <link rel="stylesheet" href="/css/animations.css">
     </head>
     <body>
+        <header role="banner">
+          <div class="container">
+            <a href="/" class="logo">
+              <img src="/images/me.png" alt="Logo">
+            </a>
+            <p class="about">
+            I am Jingshuai, a programmer living in Beijing. 
+            </p>
+            <ul class="headlinks">
+              <li class="github">
+                <a href="https://github.com/Dacainiao">
+                  <img src="/images/github.png" alt="GitHub">
+                </a>
+              </li>
+              <li class="weibo">
+                <a href="http://weibo.com/hualilideyuming">
+                  <img src="/images/weibo.png" alt="Weibo">
+                </a>
+              </li>
+              <li class="gmail">
+                <a href="mailto:chijiabao@gmail.com">
+                  <img src="/images/gmail.png" alt="Gmail">
+                </a>
+              </li>
+            </ul>
+          </div>
+        </header>
         <a href="https://github.com/Dacainiao/Dacainiao.github.io"><img style="position: absolute; top: 0; right: 0; border: 0;" src="/images/fork_me_right_red.png" alt="Fork me on GitHub" /></a>
-        <div class="site">
-          <div class="header">
-            <h1 class="title"><a href="/">{{ site.name }}</a></h1>
-            <a class="extra" href="/">home</a>
-          </div>
-
+        <section role="main" class="container">
           {{ content }}
-
-          <div class="footer">
-            <div class="contact">
-              <p>
-                Jingshuai Chi<br />
-                微博<br />
-              </p>
-            </div>
-            <div class="contact">
-              <p>
-                <a href="https://github.com/Dacainiao">github.com/Dacainiao</a><br />
-                <a href="http://weibo.com/hualilideyuming">weibo.com/hualilideyuming</a><br />
-              </p>
-            </div>
-          </div>
-        </div>
-
+        </section>
+        <nav class="archive footer container">
+          <h1>
+            <a class="nav-prev" href=""></a>
+          </h1>
+          <h1>
+            <a class="nav-next" href=""></a>
+          </h1>
+        </nav>
+        <footer id="footer">
+          <section role="main" class="container">
+            <p>
+                Powered by
+                <a href="https://github.com/mojombo/jekyll">Jekyll</a>
+                .
+            </p>
+          </section>
+        </footer>
     </body>
 </html>
