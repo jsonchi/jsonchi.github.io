@@ -1,4 +1,3 @@
 name: Bloooog
 markdown: redcarpet
 pygments: true
-excerpt_separator: <!--more-->
