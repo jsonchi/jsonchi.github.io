@@ -7,5 +7,5 @@ categories: jekyll update
 ---
 
 * Thinking in Java (one chapter a day at least)  
-* The Busy Coders Guide to Android Development (two chapter a day at least)  
+* The Busy Coders Guide to Android Development (two chapters a day at least)  
 * The Flask Mega Tutorial (waiting to start)  
