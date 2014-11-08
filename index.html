@@ -11,9 +11,6 @@ title: Bloooog
 	<p class="meta"><time datetime="">{{ post.date | date_to_string }}</time></p>
 	<h2><a href="{{ post.url }}">{{ post.title }}</a></h2>
       </header>
-      <section class="content">
-	<p class="intro">{{ post.excerpt }}</p>
-      </section>
     </article>
     {% endfor %}
   </ul>
