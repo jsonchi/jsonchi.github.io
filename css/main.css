@@ -86,7 +86,6 @@ a.logo{
   height: 200px;
   margin-top: 20px;
   border-bottom: none;
-  border-radius: 50%;
   background: url(/images/me.png) no-repeat center center;
 }
 .logo img{
