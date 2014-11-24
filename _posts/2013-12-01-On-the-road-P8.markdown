@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "在路上 [P8]"
-date:   2013-12-01 16:49:30
 tag:    [digest]
 categories: jekyll update
 ---
