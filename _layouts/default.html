@@ -1,68 +1,15 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <title>{{ page.title }}</title>
-        <meta name="viewport" content="width=device-width">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <meta name="robots" content="index, follow">
-        <meta name="description" content="Chi Jingshuai's blog." />
-        <meta name="author" content="Chi Jingshuai" />
-        
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
 
-        <!-- Custom CSS -->
-        <link rel="stylesheet" href="/css/main.css">
-        <link rel="stylesheet" href="/css/animations.css">
-    </head>
-    <body>
-        <header role="banner">
-          <div class="container">
-            <a href="/" class="logo">
-              <img src="/images/me.png" alt="Logo">
-            </a>
-            <p class="about">
-            I am Jingshuai, a programmer living in Beijing. 
-            </p>
-            <ul class="headlinks">
-              <li class="github">
-                <a href="https://github.com/Dacainiao">
-                  <img src="/images/github.png" alt="GitHub">
-                </a>
-              </li>
-              <li class="weibo">
-                <a href="https://twitter.com/jsonchi">
-                  <img src="/images/twitter.png" alt="Twitter">
-                </a>
-              </li>
-              <li class="gmail">
-                <a href="mailto:chijiabao@gmail.com">
-                  <img src="/images/gmail.png" alt="Gmail">
-                </a>
-              </li>
-            </ul>
-          </div>
-        </header>
-        <section role="main" class="container">
-          {{ content }}
-        </section>
-        <nav class="archive footer container">
-          <h1>
-            <a class="nav-prev" href=""></a>
-          </h1>
-          <h1>
-            <a class="nav-next" href=""></a>
-          </h1>
-        </nav>
-        <footer id="footer">
-          <section role="main" class="container">
-            <p>
-                Powered by
-                <a href="https://github.com/mojombo/jekyll">Jekyll</a>
-                .
-            </p>
-          </section>
-        </footer>
-    </body>
+  {% include head.html %}
+
+  <body>
+
+    {% include sidebar.html %}
+
+    <div class="content container">
+      {{ content }}
+    </div>
+
+  </body>
 </html>

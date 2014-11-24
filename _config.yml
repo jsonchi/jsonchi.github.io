@@ -1,3 +1,20 @@
-name: Bloooog
-markdown: kramdown
-highlighter: rouge
+# Dependencies
+markdown:         redcarpet
+highlighter:      pygments
+
+# Permalinks
+permalink:        pretty
+relative_permalinks: true
+
+# Setup
+title:            Rust
+tagline:          'My blog'
+description:      'My personal blog.'
+url:              http://dacainiao.github.io
+baseurl:          /
+
+author:
+  name:           'Jason Chi'
+  url:            https://twitter.com/jsonchi
+
+paginate:         5
