@@ -8,8 +8,8 @@ relative_permalinks: true
 
 # Setup
 title:            Rust
-tagline:          'My blog'
-description:      'My personal blog.'
+tagline:          'My Blog'
+description:      'Winter is coming.'
 url:              http://dacainiao.github.io
 baseurl:          /
 
