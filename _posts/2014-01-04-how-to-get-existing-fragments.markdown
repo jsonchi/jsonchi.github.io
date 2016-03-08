@@ -1,7 +1,8 @@
 ---
 layout: post
+date: 2014-01-04 19:32:10 +0800
 title:  "How to get existing fragments when using FragmentPagerAdapter"
-categories: jekyll update
+
 ---
 
 * **Few things should noted**:

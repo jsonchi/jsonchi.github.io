@@ -1,7 +1,9 @@
-#Algorithms Unlocked
-##Thomas H.Cormen
+---
+layout: post
+date: 2016-03-08 19:32:10 +0800
+title:  "Algorithms Unlocked"
 
-***
+---
 
 ###Preface
 
