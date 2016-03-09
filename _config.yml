@@ -1,21 +1,25 @@
-# Welcome to Jekyll!
-#
-# This config file is meant for settings that affect your whole blog, values
-# which you are expected to set up once and rarely need to edit after that.
-# For technical reasons, this file is *NOT* reloaded automatically when you use
-# 'jekyll serve'. If you change this file, please restart the server process.
-
 # Site settings
-title: My Blog
+title: Cyber
 email: chijiabao@gmail.com
-description: > # this means to ignore newlines until "baseurl:"
-  Write an awesome description for your new site here. You can edit this
-  line in _config.yml. It will appear in your document head meta (for
-  Google search results) and in your feed.xml site description.
+description: My blog
 baseurl: ""
 url: "http://dacainiao.github.io"
-twitter_username: jsonchi
-github_username:  dacainiao
+author:
+  fullname: Json Chi
+#  googleplus: https://www.google.com/+MotaquillahMaddane
+  github: dacainiao
+  twitter: jsonchi
+  # disqus: your_disqus_forum_shortname
+
+# google_analytics: 'UA-XXXXXXXX-X'
+
+# Syntax highlighting
+highlightstyle: ''
+styles: [agate, androidstudio, arta, asceti, atelier-cave.dark, atelier-cave.light, atelier-dune.dark, atelier-dune.light, atelier-estuary.dark, atelier-estuary.light, atelier-forest.dark, atelier-forest.light, atelier-heath.dark, atelier-heath.light, atelier-lakeside.dark, atelier-lakeside.light, atelier-plateau.dark, atelier-plateau.light, atelier-savanna.dark, atelier-savanna.light, atelier-seaside.dark, atelier-seaside.light, atelier-sulphurpool.dark, atelier-sulphurpool.light, brown_paper, codepen-embed, color-brewer, dark, darkula, default, docco, far, foundation, github, github-gist, googlecode, grayscale, hopscotch, hybrid, idea, ir_black, kimbie.dark, kimbie.light, magula, mono-blue, monokai, monokai_sublime, obsidian, paraiso.dark, paraiso.light, pojoaque, railscast, rainbow, school_book, solarized_dark, solarized_light, styles_list.txt, sunburst, tomorrow, tomorrow-night-blue, tomorrow-night-bright, tomorrow-night, tomorrow-night-eightie, v, xcode, zenburn]
+
+# Handling Reading
+exclude: ["README.md"]
 
 # Build settings
+highlighter: null
 markdown: kramdown
