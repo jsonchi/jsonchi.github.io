@@ -5,9 +5,9 @@ title:  "Algorithms Unlocked"
 
 ---
 
-###Preface
+### Preface
 
-###1. What Are Algoritms and Why Should You Care?
+### 1. What Are Algoritms and Why Should You Care?
 * ##### Correctness
 * ##### Resource usage
 * ##### Computer algorithms for non-computer people
@@ -16,7 +16,7 @@ title:  "Algorithms Unlocked"
 
 
 
-###2. How to Describe and Evaluate Computer Algorithms
+### 2. How to Describe and Evaluate Computer Algorithms
 * ##### How to describe computer algorithms
 * ##### How to characterize running times
 * ##### Loop invariants
@@ -25,7 +25,7 @@ title:  "Algorithms Unlocked"
 
 
 
-###3. Algorithms for Sorting and Searching
+### 3. Algorithms for Sorting and Searching
 * ##### Binary search
 * ##### Selection sort
 * ##### Insertion sort
@@ -34,14 +34,14 @@ title:  "Algorithms Unlocked"
 * ##### Recap
 * ##### Further reading
 
-###4. A Lower Bound for Sorting and How to Beat It
-* #####Rules for sorting
+### 4. A Lower Bound for Sorting and How to Beat It
+* ##### Rules for sorting
 * ##### The lower bound on comparison sorting
 * ##### Beating the lower bound with counting sort
 * ##### Radix sort
 * ##### Further reading
 
-###5. Directed Acyclic Graphs
+### 5. Directed Acyclic Graphs
 * ##### Directed acyclic graphs
 * ##### Topological sorting
 * ##### How to represent a directed graphs
@@ -51,19 +51,19 @@ title:  "Algorithms Unlocked"
 * ##### Further Reading
 
 
-###6. Shortest Paths
+### 6. Shortest Paths
 * ##### Dijkstra's algorithms
 * ##### The Bellman-Ford algorithms
 * ##### The Floyd-Warshall algorithms
 * ##### Further reading
 
-###7. Algorithms on Strings
+### 7. Algorithms on Strings
 * ##### Longest common subsequence
 * ##### Transforming one string to another
 * ##### String matching
 * ##### Further reading
 
-###8. Foundations of Cryptography
+### 8. Foundations of Cryptography
 * ##### Simple substitution ciphers
 * ##### Symmetric-key cryptography
 * ##### Public-key cryptography
@@ -72,13 +72,13 @@ title:  "Algorithms Unlocked"
 * ##### Computing random numbers
 * ##### Further reading
 
-###9. Data Compression
+### 9. Data Compression
 * ##### Huffman codes
 * ##### Fax machines
 * ##### LZW compression
 * ##### Further reading
 
-###10. Hard? Problems
+### 10. Hard? Problems
 * ##### Brown trucks
 * ##### The classed P and NP and NP-completeness
 * ##### Decisions problems and reductions
