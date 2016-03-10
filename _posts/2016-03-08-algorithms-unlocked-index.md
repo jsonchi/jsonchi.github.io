@@ -5,7 +5,7 @@ title:  "Algorithms Unlocked"
 
 ---
 
-### Preface
+### [前言](2016-03-10-preface.md)
 
 ### 1. What Are Algorithms and Why Should You Care?
 * ##### Correctness
