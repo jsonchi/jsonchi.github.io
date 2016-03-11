@@ -9,7 +9,7 @@ title:  "Android 的消息传递"
 
 在 Android 应用中，最常见的线程间通信发生在 UI 主线程和工作线程之间。因此，Android 平台定义了自己的消息传递机制来达到线程间通信的目的。UI 主线程可以通过将要处理的数据信息发送给后台线程的方式将耗时的任务移交给后台线程处理。该消息传递机制是一种非阻塞的生产者-消费者模式，因此在消息传递期间，生产者线程和消费者线程都不会发生阻塞。
 
-该种机制在 Android 平台中是一种基本的消息处理机制，相关 API 和实现的一系列类位于 **android.os** 包中，见**图4-4**：
+这种机制在 Android 平台中是一种基本的消息处理机制，相关 API 和实现的一系列类位于 **android.os** 包中，见**图4-4**：
 
 ![图4-4](/resources/images/figure-4-4.png)
 
@@ -59,11 +59,14 @@ public class LooperActivity extends Activity {
         public void run() {
             Looper.prepare(); //2.
             mHandler = new Handler() { //3.
+            
+            	@Override
                 public void handleMessage(Message msg) { //4.
                     if (msg.what == 0) {
                         doLongRunningOperation();
                     }
                 }
+                
             };
             Looper.loop(); //5.
         }
@@ -94,4 +97,17 @@ public class LooperActivity extends Activity {
 
 1. 定义工作线程，作为消息队列的消费者。
 2. 把一个 Looper 和一个隐式的 MessageQueue 与线程联系起来。
-3. 
+3. 创建一个 Handler 用来向消息队列插入消息。这儿我们用的是默认构造函数，因此它对当前线程的 Looper 一无所知。所以，这个 Handler 只能在 Looper.prepare() 之后创建。
+4. 当消息分发给工作线程时，执行此回调。它检查 what 参数，然后执行耗时操作。
+5. 开始将消息队列里的消息分发给消费者线程。这个调用是阻塞的，所以工作线程不会结束。
+6. 启动工作线程，准备处理消息。
+7. 因为在工作线程中创建 mHandler 和在 UI 线程使用它之间存在竞争条件，所以需要判断 mHandler 是否有效。
+8. 用一个设为0的 what 参数初始化一个消息对象。
+9. 向消息队列中插入消息。
+10. 终结工作线程。Looper.quit() 能够终止消息的分发并且使 Looper.loop() 从阻塞中释放出来，因此，run() 方法可以结束执行，从而导致线程终止。
+
+##  消息传递中使用到的类
+
+现在让我们更细致的观察消息传递中特定的组件以及它们的使用。
+
+### MessageQueue
