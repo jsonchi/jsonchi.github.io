@@ -42,3 +42,56 @@ title:  "Android 的消息传递"
 3. 分发消息：Handler 负责处理运行在消费者线程的消息。一个线程可以拥有多个用来处理消息的 Handler 实例；Looper 则保证消息能够分发给正确的 Handler。
 
 ## 示例：简单的消息传递
+
+在我们详细的剖析各个组件之前，让我们先通过一个简单的示例来熟悉代码。
+
+接下来的代码实现可能是最常见的消息传递用例之一。用户按下屏幕上的一个按钮，触发一个耗时操作，比如网络请求。为了避免阻塞 UI 的渲染，该耗时操作（此例中用 doLongRunningOperation() 方法代表）必须在工作线程上执行。因此，我们这里只有一个生产者线程（ UI 线程 ）和一个消费者线程（LooperThread）。
+
+这里我们设置了一个消息的队列，它像平常一样在 onClick() 回调中处理按钮点击事件，该操作发生在 UI 线程。在我们的实现中，该回调向我们的消息队列中插入了一条伪消息。简单起见，此处省略了布局和控件相关的代码。
+
+{% highlight java %}
+public class LooperActivity extends Activity {
+
+    LooperThread mLooperThread;
+    
+    private static class LooperThread extends Thread { //1.
+        public Handler mHandler;
+        public void run() {
+            Looper.prepare(); //2.
+            mHandler = new Handler() { //3.
+                public void handleMessage(Message msg) { //4.
+                    if (msg.what == 0) {
+                        doLongRunningOperation();
+                    }
+                }
+            };
+            Looper.loop(); //5.
+        }
+    }
+    
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mLooperThread = new LooperThread(); //6.
+        mLooperThread.start();
+    }
+
+    public void onClick(View v) {
+        if (mLooperThread.mHandler != null) { //7.
+            Message msg = mLooperThread.mHandler.obtainMessage(0); //8.
+            mLooperThread.mHandler.sendMessage(msg); //9.
+        }
+    }
+
+    private void doLongRunningOperation() {
+    	 // Add long running operation here.
+    }
+
+    protected void onDestroy() {
+        mLooperThread.mHandler.getLooper().quit(); //10.
+    }
+}
+{% endhighlight %}
+
+1. 定义工作线程，作为消息队列的消费者。
+2. 把一个 Looper 和一个隐式的 MessageQueue 与线程联系起来。
+3. 
