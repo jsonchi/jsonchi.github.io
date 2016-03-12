@@ -125,3 +125,35 @@ public class LooperActivity extends Activity {
 生产者线程可以在任何时间将新消息插入消息队列的任何位置，插入的位置基于时间戳。如果新消息的时间戳比消息队列里的所有消息的时间戳都小，那么它将占据队列的第一个位置（也是下一个即将被分发消息的位置）。消息的插入操作总是遵循时间戳排序。
 
 ### MessageQueue.IdleHandler
+
+如果没有消息要处理，消费者线程会有一定的空闲时间。比如，***图4-7***表示了消费者线程处于空闲状态的一个时间段。默认情况下，消费者线程在空闲状态下会简单地等待新消息的到来；但是除了等待，它还可以在这些空闲时间内执行其他的任务从而使其得到充分利用。这个特性可以让那些不重要的任务推迟执行，直到其他的消息不再争夺执行时间。
+
+![图4-7](/resources/images/figure-4-7.png)
+
+***图4-7 如果没有消息满足被分发的条件，在下一条排队消息执行之前，该空闲时间段可以用来执行其他任务***
+
+当一条消息被分发，并且没有其他的消息满足被分发的条件，就会形成一个空闲时间段。Android 应用通过 **android.os.MessageQueue.IdleHandler** 接口来持有这段时间。该接口监听消费者线程，当消费者线程空闲时生成回调。通过以下这些调用，该接口与 MessageQueue 建立或者中断关系:
+
+{% highlight java%}
+// Get the message queue of the current thread.MessageQueue mq = Looper.myQueue();// Create and register an idle listener.MessageQueue.IdleHandler idleHandler = new MessageQueue.IdleHandler();  mq.addIdleHandler(idleHandler)// Unregister an idle listener.mq.removeIdleHandler(idleHandler)
+{% endhighlight %}
+
+IdleHandler 接口只包含一个回调方法：
+
+{% highlight java%}
+interface IdleHandler { 
+    boolean queueIdle();}
+{% endhighlight%}
+
+当消息队列监测到消费者线程有空闲时间时，它会调用所有已注册 IdleHandler 实例的 queueIdle() 方法。回调的实现由应用负责，你应该尽量在回调中避免耗时的任务，以免推迟等待消息的执行。
+
+queueIdle() 的实现必须返回一个布尔值，其意义如下：
+
+**true**
+
+&emsp;&emsp;IdleHandler 保持活跃，它将继续接收空闲时间段的回调。
+
+**false**
+
+&emsp;&emsp;IdleHandler 不再活跃，不再接受任何回调。这和调用 MessageQueue.removeIdleHandler() 的效果是一样的。
+
