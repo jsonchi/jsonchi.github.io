@@ -157,3 +157,74 @@ queueIdle() 的实现必须返回一个布尔值，其意义如下：
 
 &emsp;&emsp;IdleHandler 不再活跃，不再接受任何回调。这和调用 MessageQueue.removeIdleHandler() 的效果是一样的。
 
+### 示例：用 IdleHandler 终结无用线程
+
+当线程在等待新消息时出现空闲时间段，那么所有向消息队列注册过的 IdleHandler 都会被调用。空闲时间段可能发生在第一条消息之前，两条消息之间或者最后一条消息之后。如果有多个内容生产者在消费者线程上顺序的处理数据时，IdleHandler 可以在所有的消息得到处理后终结消费者线程，从而使无用的线程不在占据内存。有了 IdleHandler 的帮助，就没有必要跟踪插入的最后一条消息以及何时可以终结线程了。
+
+注意：此用例只适合于当生产者线程向消息队列插入消息没有延迟，从而使得消费者线程在最后一条消息插入之前不会产生空闲时间段这种情况。
+
+下面的 ConsumeAndQuitThread 展示了当没有新消息要处理时，终结线程的情况。
+
+{% highlight java%}
+public class ConsumeAndQuitThread extends Thread implements MessageQueue.IdleHandler {
+    private static final String THREAD_NAME = "ConsumeAndQuitThread";
+    public Handler mConsumerHandler;
+    private boolean mIsFirstIdle = true;
+
+    public ConsumeAndQuitThread() {
+        super(THREAD_NAME);
+    }
+
+    @Override
+    public void run() {
+        Looper.prepare();
+        mConsumerHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) { // Consume data
+            }
+        };
+        Looper.myQueue().addIdleHandler(this);//1.
+        Looper.loop();
+    }
+
+    @Override
+    public boolean queueIdle() {
+        if (mIsFirstIdle) {//2.
+            mIsFirstIdle = false;
+            return true;//3.
+        }
+        mConsumerHandler.getLooper().quit();//4.
+        return false;
+    }
+
+    public void enqueueData(int i) {
+        mConsumerHandler.sendEmptyMessage(i);
+    }
+}
+{% endhighlight%}
+
+1. 将 IdleHandler 注册到后台线程，以使当线程和 Looper 准备好时消息队列已经设置好。
+2. 让 queueIdle 的第一次调用通过，因为它发生在第一条消息到来之前。
+3. 返回 true 使得 IdleHandler 通过第一次调用后依然保持注册状态。
+4. 终结线程。
+
+消息的插入是由并发的多个线程通过模拟的随机插入时间完成的：
+
+{% highlight java%}
+final ConsumeAndQuitThread consumeAndQuitThread = new ConsumeAndQuitThread();
+consumeAndQuitThread.start();
+for(inti=0;i<10;i++){
+    new Thread(new Runnable(){
+    @Override
+    public void run(){
+        for(inti=0;i<10;i++){
+            SystemClock.sleep(new Random().nextInt(10));
+            consumeAndQuitThread.enqueueData(i);
+        }
+    }
+    }).start();
+}
+{% endhighlight%}
+
+### Message
+
