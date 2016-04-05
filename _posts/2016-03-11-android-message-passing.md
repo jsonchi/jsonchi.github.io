@@ -265,6 +265,56 @@ Message m = Message.obtain(handler, runnable); m.sendToTarget();
 
 消息这种状态的转换部分由应用控制，部分由平台控制。注意这些状态不是 observable 的，应用也不能观察到从一个状态到另一个状态的转换（尽管有方法可以观察到消息的动作）。因此，当处理消息时，应用不应该对消息的当前状态做任何假设。
 
+**初始化**
+
+在初始化状态下，一个具有可变状态的消息对象被创建，并且，如果它是一个数据消息的话，用相应的数据填充。应用负责通过以下的调用创建消息对象。他们从对象池中取出对象：
+
+- 显式的对象构造：
+
+  + {% highlight java%}
+Message m = new Message();
+{% endhighlight%}
+
+- 工厂方法：
+  + 空消息：
+  
+    {% highlight java%}
+    Message m = Message.obtain();
+	{% endhighlight%}
+	
+  + 数据消息：
+  
+  	{% highlight java%}	Message m = Message.obtain(Handler h);	Message m = Message.obtain(Handler h, int what);	Message m = Message.obtain(Handler h, int what, Object o);	Message m = Message.obtain(Handler h, int what, int arg1, int arg2); 	Message m = Message.obtain(Handler h, int what, int arg1, int arg2,Object o);
+	{% endhighlight%}
+	
+  + 任务消息：
+  	
+	{% highlight java%}
+	Message m = Message.obtain(Handler h, Runnable task);
+	{% endhighlight%}
+	
+  + 复制构造函数：
+  
+  	{% highlight java%}
+	Message m = Message.obtain(Message originalMsg);
+	{% endhighlight%}
+	
+**排队**
+
+生产者线程将消息插入队列，并等待被分发给消费者线程。
+
+**已分发**
+
+在这个状态下，Looper 已经从消息队列中取回消息并且将其从队列中移除了。该消息已被分发给消费者线程，并且消费者线程当前正在处理它。对于此操作并没有相关的 API，因为分发是受 Looper 控制的，不受应用影响。当 Looper 分发消息时，它检查消息的发送信息并将其分发给正确的接受者。一旦消息分发完成，交由消费者线程处理此消息。
+
+**已回收**
+
+在生命周期的这个点，消息的状态被清除而且消息实例回到消息池中。当在消费者线程上的操作完成时，Looper 负责处理消息的回收。消息的回收由运行时负责，不应该由应用去显式的操作。
+
+***注意*** 一旦消息被插入到消息队列中，消息的内容就不应该被改变。理论上，在消息被分发之前，改变消息的内容是有效的。然而，因为消息的状态不是 observable 的，所以，当生产者线程尝试改变消息的内容时，消费者线程可能正在处理此消息，从而导致线程安全问题。更坏的情况是此消息已经被回收，因为它会返回消息池中，很有可能被另一个生产者将其插入另一个队列。
+
+
+	
 
 
 
