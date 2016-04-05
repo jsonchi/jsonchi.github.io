@@ -276,28 +276,28 @@ Message m = new Message();
 {% endhighlight%}
 
 - 工厂方法：
-	+ 空消息：
+  + 空消息：
   
     {% highlight java%}
-    Message m = Message.obtain();
+Message m = Message.obtain();
 	{% endhighlight%}
 	
-  	+ 数据消息：
+  + 数据消息：
   
-  	{% highlight java%}Message m = Message.obtain(Handler h);Message m = Message.obtain(Handler h, int what);Message m = Message.obtain(Handler h, int what, Object o);Message m = Message.obtain(Handler h, int what, int arg1, int arg2); Message m = Message.obtain(Handler h, int what, int arg1, int arg2,Object o);
-	{% endhighlight%}
+    {% highlight java%}Message m = Message.obtain(Handler h);Message m = Message.obtain(Handler h, int what);Message m = Message.obtain(Handler h, int what, Object o);Message m = Message.obtain(Handler h, int what, int arg1, int arg2); Message m = Message.obtain(Handler h, int what, int arg1, int arg2,Object o);
+    {% endhighlight%}
 	
-  	+ 任务消息：
+  + 任务消息：
   	
-	{% highlight java%}
+    {% highlight java%}
 Message m = Message.obtain(Handler h, Runnable task);
-	{% endhighlight%}
+    {% endhighlight%}
 	
-  	+ 复制构造函数：
+  + 复制构造函数：
   
-  	{% highlight java%}
+    {% highlight java%}
 Message m = Message.obtain(Message originalMsg);
-	{% endhighlight%}
+    {% endhighlight%}
 	
 **排队**
 
