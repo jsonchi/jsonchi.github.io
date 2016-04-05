@@ -161,7 +161,7 @@ queueIdle() 的实现必须返回一个布尔值，其意义如下：
 
 当线程在等待新消息时出现空闲时间段，那么所有向消息队列注册过的 IdleHandler 都会被调用。空闲时间段可能发生在第一条消息之前，两条消息之间或者最后一条消息之后。如果有多个内容生产者在消费者线程上顺序的处理数据时，IdleHandler 可以在所有的消息得到处理后终结消费者线程，从而使无用的线程不在占据内存。有了 IdleHandler 的帮助，就没有必要跟踪插入的最后一条消息以及何时可以终结线程了。
 
-注意：此用例只适合于当生产者线程向消息队列插入消息没有延迟，从而使得消费者线程在最后一条消息插入之前不会产生空闲时间段这种情况。
+***注意：***此用例只适合于当生产者线程向消息队列插入消息没有延迟，从而使得消费者线程在最后一条消息插入之前不会产生空闲时间段这种情况。
 
 下面的 ConsumeAndQuitThread 展示了当没有新消息要处理时，终结线程的情况。
 
@@ -227,4 +227,33 @@ for(inti=0;i<10;i++){
 {% endhighlight%}
 
 ### Message
+
+在消息队列中的每个 item 都属于 **android.os.Message** 类。这是一个携带着一个数据项或者任务项的容器对象，但不会兼而有之。数据项由消费者线程处理，而任务项只是在出列时简单的被执行，如果你没有其他处理要做的话。
+
+Message 知晓它的接受者，比如 Handler。而且可以通过 **Message.sendToTarget()** 将自己加入到消息队列中：
+
+{% highlight java%}
+Message m = Message.obtain(handler, runnable); m.sendToTarget();
+{% endhighlight%}
+
+**Data Message**
+
+如***表4-2***所示，数据集含有多个参数可以传递给消费者线程。
+
+***表4-2*** Message 的参数
+
+|    参数名    |    参数类型    |    含义    |
+| -----|:----:| ----:|
+|    what     |    int        | 消息的 id，表达消息的意图。 |
+|  arg1,arg2  |    int     | 一般处理整型数据时的数据值。在至多传递两个整型数给消费者线程的情况下，这种传递比下面描述的 Bundle 更有效率。 |
+|   obj   |   Object   | 任意的对象。如果此对象要传递给另一个进程的线程时，它必须实现 Parcelable 接口。 |
+|   data   |  Bundle   | 数据值的容器 |
+|   replyTo  |  Messenger  | 在其他进程中的 Handler 的引用，使进程间通信成为可能。 |
+|   callback  |  Runnable  |   线程要执行的任务。这是从 Handler.post 方法传递过来的一个内部实例域。 |
+
+**Task Message**
+
+Task Message 通过 **java.lang.Runnable** 对象来表示一个在消费者线程上执行的任务。Task Message 除了它自身不能包括任何数据。
+
+
 
