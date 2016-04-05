@@ -276,24 +276,24 @@ Message m = new Message();
 {% endhighlight%}
 
 - 工厂方法：
-  + 空消息：
+ + 空消息：
   
     {% highlight java%}
 Message m = Message.obtain();
 	{% endhighlight%}
 	
-  + 数据消息：
+ + 数据消息：
   
     {% highlight java%}Message m = Message.obtain(Handler h);Message m = Message.obtain(Handler h, int what);Message m = Message.obtain(Handler h, int what, Object o);Message m = Message.obtain(Handler h, int what, int arg1, int arg2); Message m = Message.obtain(Handler h, int what, int arg1, int arg2,Object o);
     {% endhighlight%}
 	
-  + 任务消息：
+ + 任务消息：
   	
     {% highlight java%}
 Message m = Message.obtain(Handler h, Runnable task);
     {% endhighlight%}
-	
-  + 复制构造函数：
+    
+ + 复制构造函数：
   
     {% highlight java%}
 Message m = Message.obtain(Message originalMsg);
@@ -314,6 +314,50 @@ Message m = Message.obtain(Message originalMsg);
 ***注意*** 一旦消息被插入到消息队列中，消息的内容就不应该被改变。理论上，在消息被分发之前，改变消息的内容是有效的。然而，因为消息的状态不是 observable 的，所以，当生产者线程尝试改变消息的内容时，消费者线程可能正在处理此消息，从而导致线程安全问题。更坏的情况是此消息已经被回收，因为它会返回消息池中，很有可能被另一个生产者将其插入另一个队列。
 
 ###Looper
+
+**android.os.Looper** 将消息队列中的消息分发给相关联的 handler。所有满足分发资格的消息，如***图4-6***所示，都会被 Looper 分发。只要消息队列中有满足分发资格的消息，Looper 就会保证消费者线程收到这些消息。当没有消息满足分发资格时，消费者线程将会阻塞，直到有消息满足分发资格。
+
+消费者线程不会直接与消息队列交互。取而代之的是，当 Looper 与线程关联（attach）时，消息队列被添加到该线程中。Looper 负责管理消息队列并将消息分发给消费者线程。
+
+
+默认情况下，只有 UI 主线程拥有 Looper，应用中创建的线程需要显式的获得一个 Looper。为一个线程创建 Looper 时，该 Looper 被关联到一个消息队列。Looper 扮演了消息队列和线程之间的中间人角色。创建操作在线程的 run 方法中完成：
+
+{% highlight java%}
+class ConsumerThread extends Thread {
+    @Override
+    public void run() {
+        Looper.prepare();//1.
+        // Handler creation omitted.
+        Looper.loop();//2.
+    }
+}
+{% endhighlight%}
+
+1. 第一步通过静态方法 prepare() 创建 Looper，它将创建一个消息队列并跟当前的线程建立关联。此时，消息队列已经准备好插入消息，但是它们还没有分发给消费者线程。
+2. 开始处理消息队列中的消息。这是一个阻塞方法，从而保证 run() 方法不会执行完毕。当 run() 方法阻塞时，Looper 将消息分发给消费者线程处理。
+
+
+一个线程只能与一个 Looper 建立关联，当为线程创建第二个 Looper 时会发生运行时错误。因此，一个线程只能有一个消息队列，这就意味着由多个生产者线程发送的消息在消费者线程上会顺序地执行。所以，当前正在执行的消息会推迟接下来的消息的执行，直到它被执行完。不应该执行一个耗时的消息，如果它会推迟队列中重要任务的执行的话。
+
+**Looper 的终结**
+
+Looper 可以通过 quit 或者 quitSafely 方法请求停止对消息的处理：quit() 停止此 Looper 对队列中任何消息（所有排队的消息，包括满足分发资格的消息）的分发。而 quitSafely 方法只会丢弃那些没有满足分发资格的消息，那些满足分发资格的消息会在 Looper 终结前得到处理。
+
+***注意*** quitSafely 在 API 18 (Jelly Bean 4.3)时才加入。在这之前的 API 只支持 quit。
+
+Looper 的终结并不会终结线程。它只是退出 Looper.loop() 方法，使得线程恢复到调用 loop 方法的那个方法内运行。但是你不能启动一个老的 Looper 或者一个新的 Looper，因此线程不会再处理消息。当你调用 Looper.prepare() 时，会抛出 RuntimeException 异常，因为该线程已经有一个关联的 Looper。如果你调用 Looper.loop() 方法，它将会阻塞，而且也不会有消息从队列中被分发。
+
+**UI 主线程的 Looper**
+
+UI 主线程是唯一一个在默认情况下与一个 Looper 关联的线程。它和应用内创建的一般线程无异，但是 Looper 在应用的组件初始化之前就会与此线程建立关联。
+
+UI 主线程和一般的线程在实际应用中有以下区别:
+
+* 它可以通过 Looper.getMainLooper() 方法在任何地方获得。
+* 它不会被会总结。Looper.quit() 会抛出 RuntimeException。
+* 运行时通过 Looper.prepareMainLooper() 将一个 Looper 与 UI 主线程建立关联。因此，尝试将 main looper 关联到其他线程会抛出异常。
+
+ 
 
 
 	
