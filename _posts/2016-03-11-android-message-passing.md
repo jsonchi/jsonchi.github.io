@@ -694,6 +694,214 @@ public class HandlerCallbackActivity extends Activity implements Handler.Callbac
 
 #### 移除队列中的消息
 
+当一条消息加入队列后，只要没有被 Looper 从队列中取出，生产者线程就可以通过 Handler 类的一个方法将它从队列中移除。有时候，应用需要清除消息队列中所有的消息，这是可能的；但大多数情况下，需要更精确的操作：只清除队列中的一部分消息。为此，需要区别出正确的消息。因此，如***表 4-4***所示，消息可以通过一些特定的标识符区别开来。
+
+***表 4-4***
+
+|    标识符类型    |    含义    |  适用的消息类型  |
+| -----|:----:| ----:|
+| Handler | 消息的接收者 | 任务消息和数据消息 |
+| Object | 消息的标签 | 任务消息和数据消息 |
+| Integer | 消息的 what 参数 | 数据消息 |
+| Runnable | 要执行的任务 | 任务消息 |
+
+Handler 标识符对所有的消息是必须的，因为一条消息总是需要知道它将被分发给哪个 Handler。这个条件隐式的限制了每个 Handler 只能移除属于它自己的消息。一个 Handler 不可能移除消息队列中另一个 Handler 插入的消息。
+
+Handler 类中管理消息队列的方法如下：
+
+* 从消息队列中移除一条任务消息：
+
+{% highlight java%}
+    removeCallbacks(Runnable r)
+
+    removeCallbacks(Runnable r, Object token)
+{% endhighlight%}
+
+* 从消息队列中移除一条数据消息：
+
+{% highlight java%}
+    removeMessages(int what)
+
+    removeMessages(int what, Object object)
+{% endhighlight%}
+
+* 从消息队列中移除任务消息和数据消息：
+
+{% highlight java%}
+    removeCallbacksAndMessages(Object token)
+{% endhighlight%}
+
+Object 标识符既可用于任务消息也可用于数据消息。因此，它可以作为一种标签赋给消息，从而允许你稍后移除掉所有用同一个 Object 打标签的消息。
+
+比如，以下代码片段在消息队列中插入了两条消息使得稍后可以基于标签移除掉它们：
+
+{% highlight java%}
+Object tag = new Object();//1.
+
+    Handler handler = new Handler() {
+
+        public void handleMessage(Message msg) {
+            // Process message
+            Log.d("Example", "Processing message");
+        }
+    };
+
+    Message message = handler.obtainMessage(0, tag);//2.
+    handler.sendMessage(message);
+    handler.postAtTime(new Runnable(){//3.
+        public void run(){
+        // Left empty for brevity
+    }
+    },tag,SystemClock.uptimeMillis());
+
+    handler.removeCallbacksAndMessages(tag);//4.
+{% endhighlight%}
+
+1. 消息的标签标识符
+2. 在消息实例中，Object 既被作为数据的容器也被隐式的定义为消息的标签
+3. 发送一条带有显式消息标签的任务消息
+4. 移除掉所有标签为 tag 的消息
+
+如上所述，在你请求移除一条消息之前，你无法知道这条消息是否被分发和处理。一旦消息被分发，将其插入队列的生产者线程就不能停止任务消息的执行或者数据消息的处理。
+
+#### 观察消息队列
+
+观察排队中的消息以及 Looper 将消息分发给相应的 Handler 的过程是可行的。Android 平台提供了两种观察机制。让我们以例子熟悉它们。
+
+第一个例子展示了如何将当前排队中的消息的快照打印到日志中。
+
+##### 获取当前消息队列的快照
+
+此例在 Activity 创建时，创建了一个工作线程。当用户按下按钮，导致 onClick 被调用，使六条消息以不同的方式被添加到队列中。然后我们观察消息队列的状态：
+
+{% highlight java%}
+public class MQDebugActivity extends Activity {
+    private static final String TAG = "EAT";
+    Handler mWorkerHandler;
+
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_mqdebug);
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                Looper.prepare();
+                mWorkerHandler = new Handler() {
+                    @Override
+                    public void handleMessage(Message msg) {
+                        Log.d(TAG, "handleMessage - what = " + msg.what);
+                    }
+                };
+                Looper.loop();
+            }
+        };
+        t.start();
+    }
+
+    // Called on button click, i.e. from the UI thread.
+    public void onClick(View v) {
+        mWorkerHandler.sendEmptyMessageDelayed(1, 2000);
+        mWorkerHandler.sendEmptyMessage(2);
+        mWorkerHandler.obtainMessage(3, 0, 0, new Object()).sendToTarget();
+        mWorkerHandler.sendEmptyMessageDelayed(4, 300);
+        mWorkerHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "Execute");
+            }
+        }, 400);
+        mWorkerHandler.sendEmptyMessage(5);
+        mWorkerHandler.dump(new LogPrinter(Log.DEBUG, TAG), "");
+    }
+}
+{% endhighlight%}
+
+如***图 4-10***所示，六条带有参数的消息被添加到队列中。
+
+![图4-10](/resources/images/figure-4-10.png)
+
+***图 4-10***
+
+消息添加队列之后，快照就被打印到日志中。只有排队中的消息才会被观察到。因此实际被观察的消息的数量依赖于有多少消息已经被分发给 Handler。其中三条消息被立即地插入到队列，使得获取快照时这三条消息获得了被分发的资格。
+
+运行上面代码输出以下的日志：
+
+{% highlight java%}
+49.397:handleMessage-what=2
+49.397:handleMessage-what=3
+49.397:handleMessage-what=5
+49.397:Handler(com.eat.MQDebugActivity$1$1){412cb3d8}@5994288
+49.407:Looper{412cb070}
+49.407:mRun=true
+49.407:mThread=Thread[Thread-111,5,main]
+49.407:mQueue=android.os.MessageQueue@412cb090
+49.407:Message 0:{what=4when=+293ms}
+49.407:Message 1:{what=0when=+394ms}
+49.407:Message 2:{what=1when=+1s990ms}
+49.407:(Total messages:3)
+49.707:handleMessage-what=4
+49.808:Execute
+51.407:handleMessage-what=1
+{% endhighlight%}
+
+消息队列的快照告诉我们 what 参数为 0，1和4的消息处于排队状态。它们都是在添加到队列时设置了分发的延迟。这是一个合理的结果，因为 Handler 的处理时间很短暂——只是打印到日志中。
+
+快照也展示了队列中的每条消息还有多久将会满足被分发的资格。比如，下一条要被分发的消息是 what==4 的消息，它将在 293ms 内被分发。那些始终在排队中但是已经达到被分发的资格的消息在日志中的时间为负值。
+
+##### 跟踪消息队列的处理
+
+消息的处理过程也可以打印到日志中。消息队列的打印功能来自 Looper 类。以下的调用可以开启当前队列的打印功能：
+ 
+{% highlight java%}
+Looper.myLooper().setMessageLogging(new LogPrinter(Log.DEBUG, TAG));
+{% endhighlight%}
+
+现在让我们看一个跟踪一条发送到 UI 主线程的消息的例子：
+
+{% highlight java%}
+mHandler.post(new Runnable(){
+        @Override
+        public void run(){
+            Log.d(TAG,"Executing Runnable");
+        }
+    });
+    mHandler.sendEmptyMessage(42);
+{% endhighlight%}
+
+此例发送了两条消息到队列中：一条空消息跟着一条任务消息。正如预期的那样，任务消息先被处理，并被第一个打印出来：
+
+{% highlight java%}
+ >>>>> Dispatching to Handler (android.os.Handler) {4111ef40}          com.eat.MessageTracingActivity$1@41130820: 0    Executing Runnable <<<<< Finished to Handler (android.os.Handler) {4111ef40}          com.eat.MessageTracingActivity$1@41130820
+{% endhighlight%}
+
+消息的开始和结束是通过三个属性区别开的：
+
+* Handler 实例
+
+&emsp;&emsp;android.os.Handler 4111ef40
+
+* Task 实例
+
+&emsp;&emsp;com.eat.MessageTracingActivity$1@41130820
+
+* what 参数
+
+&emsp;&emsp;0（任务消息无 what 参数）
+
+相同地，what 参数为42的消息日志如下：
+
+{% highlight java%}
+  >>>>> Dispatching to Handler (android.os.Handler) {4111ef40} null: 42  <<<<< Finished to Handler (android.os.Handler) {4111ef40} null
+{% endhighlight%}
+
+结合以上跟踪消息的分发和获取消息队列快照两种方法，应用可以细致地观察消息的传递。
+
+
+
+
+
+
+
 
 
 
