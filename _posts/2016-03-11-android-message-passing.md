@@ -236,7 +236,7 @@ Message 知晓它的接受者，比如 Handler。而且可以通过 **Message.se
 Message m = Message.obtain(handler, runnable); m.sendToTarget();
 {% endhighlight%}
 
-**数据消息**
+#### 数据消息
 
 如***表4-2***所示，数据集含有多个参数可以传递给消费者线程。
 
@@ -251,7 +251,7 @@ Message m = Message.obtain(handler, runnable); m.sendToTarget();
 |   replyTo  |  Messenger  | 在其他进程中的 Handler 的引用，使进程间通信成为可能。 |
 |   callback  |  Runnable  |   线程要执行的任务。这是从 Handler.post 方法传递过来的一个内部实例域。 |
 
-**任务消息**
+#### 任务消息
 
 任务消息通过 **java.lang.Runnable** 对象来表示一个在消费者线程上执行的任务。任务消息除了它自身不能包括任何数据。
 
@@ -265,7 +265,7 @@ Message m = Message.obtain(handler, runnable); m.sendToTarget();
 
 消息这种状态的转换部分由应用控制，部分由平台控制。注意这些状态不是 observable 的，应用也不能观察到从一个状态到另一个状态的转换（尽管有方法可以观察到消息的动作）。因此，当处理消息时，应用不应该对消息的当前状态做任何假设。
 
-**初始化**
+##### 初始化
 
 在初始化状态下，一个具有可变状态的消息对象被创建，并且，如果它是一个数据消息的话，用相应的数据填充。应用负责通过以下的调用创建消息对象。他们从对象池中取出对象：
 
@@ -299,15 +299,15 @@ Message m = Message.obtain(Handler h, Runnable task);
 Message m = Message.obtain(Message originalMsg);
     {% endhighlight%}
 	
-**排队**
+##### 排队
 
 生产者线程将消息插入队列，并等待被分发给消费者线程。
 
-**已分发**
+##### 已分发
 
 在这个状态下，Looper 已经从消息队列中取回消息并且将其从队列中移除了。该消息已被分发给消费者线程，并且消费者线程当前正在处理它。对于此操作并没有相关的 API，因为分发是受 Looper 控制的，不受应用影响。当 Looper 分发消息时，它检查消息的发送信息并将其分发给正确的接受者。一旦消息分发完成，交由消费者线程处理此消息。
 
-**已回收**
+##### 已回收
 
 在生命周期的这个点，消息的状态被清除而且消息实例回到消息池中。当在消费者线程上的操作完成时，Looper 负责处理消息的回收。消息的回收由运行时负责，不应该由应用去显式的操作。
 
@@ -339,7 +339,7 @@ class ConsumerThread extends Thread {
 
 一个线程只能与一个 Looper 建立关联，当为线程创建第二个 Looper 时会发生运行时错误。因此，一个线程只能有一个消息队列，这就意味着由多个生产者线程发送的消息在消费者线程上会顺序地执行。所以，当前正在执行的消息会推迟接下来的消息的执行，直到它被执行完。不应该执行一个耗时的消息，如果它会推迟队列中重要任务的执行的话。
 
-**Looper 的终结**
+#### Looper 的终结
 
 Looper 可以通过 quit 或者 quitSafely 方法请求停止对消息的处理：quit() 停止此 Looper 对队列中任何消息（所有排队的消息，包括满足分发资格的消息）的分发。而 quitSafely 方法只会丢弃那些没有满足分发资格的消息，那些满足分发资格的消息会在 Looper 终结前得到处理。
 
@@ -347,7 +347,7 @@ Looper 可以通过 quit 或者 quitSafely 方法请求停止对消息的处理�
 
 Looper 的终结并不会终结线程。它只是退出 Looper.loop() 方法，使得线程恢复到调用 loop 方法的那个方法内运行。但是你不能启动一个老的 Looper 或者一个新的 Looper，因此线程不会再处理消息。当你调用 Looper.prepare() 时，会抛出 RuntimeException 异常，因为该线程已经有一个关联的 Looper。如果你调用 Looper.loop() 方法，它将会阻塞，而且也不会有消息从队列中被分发。
 
-**UI 主线程的 Looper**
+#### UI 主线程的 Looper
 
 UI 主线程是唯一一个在默认情况下与一个 Looper 关联的线程。它和应用内创建的一般线程无异，但是 Looper 在应用的组件初始化之前就会与此线程建立关联。
 
@@ -357,7 +357,139 @@ UI 主线程和一般的线程在实际应用中有以下区别:
 * 它不会被会总结。Looper.quit() 会抛出 RuntimeException。
 * 运行时通过 Looper.prepareMainLooper() 将一个 Looper 与 UI 主线程建立关联。因此，尝试将 main looper 关联到其他线程会抛出异常。
 
- 
+### Handler
+
+到目前为止，我们一直关注的是 Android 线程间通信的内部情况，但是一个应用大多数情况下是与 **android.os.Handler** 交互的。它是一个双面的 API，既负责信息的插入又负责信息的处理。就像***图 4-5***所示的那样，它在生产者和消费者线程都会被调用用来：
+
+* 创建消息
+* 向队列中插入消息
+* 在消费者线程处理消息
+* 管理队列中的消息
+
+#### 创建 Handler
+
+Handler 通过和 Looper，消息队列以及消息交互发挥它的职责。如***图 4-4***所示，和它唯一联系的是 Looper，Looper 又与消息队列联系。如果没有 Looper，Handler 不会发生作用；他们不会向消息队列中插入消息，因此也不会收到任何要处理的消息。因此，Handler 在构造时就与一个 Looper 绑定在一起：
+
+* 没有显式 Looper 的构造函数会绑定到当前线程的 Looper：
+
+{% highlight java%}
+new Handler();new Handler(Handler.Callback)
+{% endhighlight%}
+
+* 有显式 Looper 的构造函数的 Handler 绑定到那个 Looper：
+
+{% highlight java%}
+new Handler(Looper);new Handler(Looper, Handler.Callback);
+{% endhighlight%}
+
+如果没有显式 Looper 参数的构造函数在一个没有 Looper 的线程内调用，Handler 不会绑定任何东西，并且会导致 RuntimeException。Handler 和 Looper 一旦绑定就是 final 的。
+
+一个线程可以有多个 Handler；它们插入的消息在一个消息队列中共存，但是会被分发给正确的 Handler 实例，如图***图 4-9***所示：
+
+![图4-9](/resources/images/figure-4-9.png)
+
+***图 4-9***多个 Handler 共用一个 Looper，插入消息的 Handler 和 处理消息的 Handler 是同一个。
+
+***注意***多个 Handler 并不会并行执行，插入的消息仍在同一个队列并且会被顺序的执行。
+
+#### Message 的创建
+
+为简单起见，Handler 为在消息的**初始化**那一节的工厂方法提供了包装函数来创建消息对象：
+
+{% highlight java%}
+Message obtainMessage(int what, int arg1, int arg2)
+
+    Message obtainMessage()
+
+    Message obtainMessage(int what, int arg1, int arg2, Object obj)
+
+    Message obtainMessage(int what)
+
+    Message obtainMessage(int what, Object obj)
+{% endhighlight%}
+
+从 Handle 获得的消息来自消息池，并且隐式的与请求它的 Handler 实例关联起来。这种关联使得 Looper 能够将每条消息分发给正确的 Handler。
+
+#### Message 的插入
+
+因消息的类型不同，Handler 可以有多种方式将消息插入消息队列。任务消息通过前缀为 ***post*** 的方法插入，而数据消息通过前缀为 ***send*** 的方法插入：
+
+* 添加一个任务消息到队列：
+
+{% highlight java%}
+boolean post(Runnable r)
+    boolean postAtFrontOfQueue(Runnable r)
+
+    boolean postAtTime(Runnable r, Object token, long uptimeMillis)
+
+    boolean postAtTime(Runnable r, long uptimeMillis)
+
+    boolean postDelayed(Runnable r, long delayMillis)
+{% endhighlight%}
+
+* 添加一个数据对象到队列：
+
+{% highlight java%}
+    boolean sendMessage(Message msg)
+
+    boolean sendMessageAtFrontOfQueue(Message msg)
+
+    boolean sendMessageAtTime(Message msg, long uptimeMillis)
+
+    boolean sendMessageDelayed(Message msg, long delayMillis)
+{% endhighlight%}
+
+* 添加一个简单的数据对象到队列：
+
+{% highlight java%}
+boolean sendEmptyMessage(int what)
+
+    boolean sendEmptyMessageAtTime(int what, long uptimeMillis)
+
+    boolean sendEmptyMessageDelayed(int what, long delayMillis)
+{% endhighlight%}
+
+所有的插入方法都会在队列中放入一个新的消息对象，即使应用并没有显式的创建那个消息对象。任务消息 ***post*** 的 Runnable 和数据消息 ***send*** 的 what 会被包装成消息对象，因为那是消息队列只允许的数据类型。
+
+为了指明消息何时满足被分发的资格，插入的消息都会带有一个时间参数。消息在消息队列中的顺序基于该时间参数，这是应用能够影响分发顺序的唯一的方法：
+
+**default**
+
+&emsp;&emsp;马上获得被分发的资格。
+
+**at_front**
+
+&emsp;&emsp;这条消息在时间为 0 时获得被分发的资格。因此它将是下一条被分发的消息，除非在它被处理之前又一条消息插在了前面。
+
+**delay**
+
+&emsp;&emsp;此时间长度过后，消息获得被分发的资格。
+
+**uptime**
+
+&emsp;&emsp;消息获得被分发资格的绝对时间。
+
+即使可以显式的设定延迟和绝对时间，处理消息所需的时间依然是不确定的。这取决于已经存在的需要先处理的消息和操作系统的调度。
+
+插入一个消息到队列并不是万无一失的。***表 4-3***列出了一些一般的错误。
+
+***表 4-3***
+
+|    失败    |    导致的错误    |  典型的应用问题  |
+| -----|:----:| ----:|
+| 消息没有 Handler | RuntimeException | 消息通过 Message.obtain() 创建并没有指定 Handler |
+| 消息已经被分发且处理 | RuntimeException | 同一条消息被插入两次 |
+| Looper 已退出 | 返回 false | 消息在 Looper.quit() 调用之后插入 |
+
+***注意*** Handler 的 dispatchMessage 方法是 Looper 用来将消息分发给消费者线程的。如果应用直接调用该方法，消息将会在当前调用此方法的线程处理而不是消费者线程。
+
+#### 范例：双向消息传递
+
+
+
+
+
+
 
 
 	
