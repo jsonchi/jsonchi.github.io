@@ -397,7 +397,7 @@ new Handler(Looper);new Handler(Looper, Handler.Callback);
 为简单起见，Handler 为在消息的**初始化**那一节的工厂方法提供了包装函数来创建消息对象：
 
 {% highlight java%}
-Message obtainMessage(int what, int arg1, int arg2)
+    Message obtainMessage(int what, int arg1, int arg2)
 
     Message obtainMessage()
 
@@ -417,7 +417,7 @@ Message obtainMessage(int what, int arg1, int arg2)
 * 添加一个任务消息到队列：
 
 {% highlight java%}
-boolean post(Runnable r)
+    boolean post(Runnable r)
     boolean postAtFrontOfQueue(Runnable r)
 
     boolean postAtTime(Runnable r, Object token, long uptimeMillis)
@@ -442,7 +442,7 @@ boolean post(Runnable r)
 * 添加一个简单的数据对象到队列：
 
 {% highlight java%}
-boolean sendEmptyMessage(int what)
+    boolean sendEmptyMessage(int what)
 
     boolean sendEmptyMessageAtTime(int what, long uptimeMillis)
 
@@ -483,7 +483,216 @@ boolean sendEmptyMessage(int what)
 
 ***注意*** Handler 的 dispatchMessage 方法是 Looper 用来将消息分发给消费者线程的。如果应用直接调用该方法，消息将会在当前调用此方法的线程处理而不是消费者线程。
 
-#### 范例：双向消息传递
+#### 示例：双向消息传递
+
+HandlerExampleActivity 模拟了当用户点击一个按钮触发一个耗时操作的场景。耗时操作在后台线程执行，同时 UI 显示一个进度条；当后台线程将返回的结果发给 UI 主线程时，移除进度条。
+
+Activity 的创建如下：
+
+{% highlight java%}
+public class HandlerExampleActivity extends Activity {
+    private final static int SHOW_PROGRESS_BAR = 1;
+    private final static int HIDE_PROGRESS_BAR = 0;
+    private BackgroundThread mBackgroundThread;
+    private TextView mText;
+    private Button mButton;
+    private ProgressBar mProgressBar;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_handler_example);
+        mBackgroundThread = new BackgroundThread();
+        mBackgroundThread.start();//1.
+        mText = (TextView) findViewById(R.id.text);
+        mProgressBar = (ProgressBar) findViewById(R.id.progress);
+        mButton = (Button) findViewById(R.id.button);
+        mButton.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBackgroundThread.doWork();//2.
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mBackgroundThread.exit();//3.
+    }
+    // ... The rest of the Activity is defined further down
+}
+{% endhighlight%}
+
+1. 当 HandlerExampleActivity 创建时，启动一个含有消息队列的线程，用来处理来自 UI 主线程的任务。
+2. 当用户点击按钮，一个新任务发送给后台线程。由于任务会在后台线程顺序地执行，所以多次点击按钮会导致任务在得到处理之前排队。
+3. 当 HandlerExampleActivity 销毁时，停止后台线程。
+
+BackgroundThread 在 HandlerExampleActivity 的生命周期内运行，接收来自 UI 主线程的消息。它没有暴露内部的 Handler，取而代之的是在公共方法 doWork 和 exit 中包装了对 Handler 的访问：
+
+{% highlight java%}
+private class BackgroundThread extends Thread {
+    private Handler mBackgroundHandler;
+
+    public void run() {//1.
+        Looper.prepare();
+        mBackgroundHandler = new Handler();//2.
+        Looper.loop();
+    }
+
+    public void doWork() {
+        mBackgroundHandler.post(new Runnable() {//3.
+            @Override
+            public void run() {
+                Message uiMsg = mUiHandler.obtainMessage(
+                        SHOW_PROGRESS_BAR, 0, 0, null);//4.
+                mUiHandler.sendMessage(uiMsg);//5.
+                Random r = new Random();
+                int randomInt = r.nextInt(5000);
+                SystemClock.sleep(randomInt);//6.
+                uiMsg = mUiHandler.obtainMessage(HIDE_PROGRESS_BAR, randomInt, 0, null);//7.
+                mUiHandler.sendMessage(uiMsg);//8.
+            }
+        });
+    }
+
+    public void exit() {//9.
+        mBackgroundHandler.getLooper().quit();
+    }
+}
+{% endhighlight%}
+
+1. 将线程与一个 Looper 关联
+2. Handler 只处理 Runnable 接口，因此无需实现 Handler.handleMessage
+3. 发送一个耗时任务给后台线程
+4. 创建一个只有 what 参数的消息对象—— SHOW_PROGRESS_BAR 用来告诉 UI 主线程显示进度条
+5. 将开始消息发送给 UI 主线程
+6. 模拟一个随机时间长度的耗时任务
+7. 创建一个含有结果 randomInt(传递给 arg1 参数) 的消息对象，what 参数用来告诉 UI 主线程移除进度条
+8. 通知 UI 主线程任务执行完毕并返回一个结果
+9. 退出 Looper 以使线程终结
+
+UI 主线程定义了自己的 Handler 接收后台线程的消息来更新 UI：
+
+{% highlight java%}
+    private final Handler mUiHandler = new Handler() {
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case SHOW_PROGRESS_BAR://1.
+                    mProgressBar.setVisibility(View.VISIBLE);
+                    break;
+                case HIDE_PROGRESS_BAR://2.
+                    mText.setText(String.valueOf(msg.arg1));
+                    mProgressBar.setVisibility(View.INVISIBLE);
+                    break;
+            }
+        }
+    };
+{% endhighlight%}
+
+1. 显示进度条
+2. 隐藏进度条并显示返回结果
+
+#### Message 的处理
+
+Looper 分发的消息交由消费者线程的 Handler 来处理。消息的类型决定了处理的方式：
+
+***任务消息***
+
+&emsp;&emsp;任务消息不含数据，是包含一个 Runnable 接口。因此，处理操作在 Runnable 接口的 run 方法内定义，且无需调用 Handler.handleMessage() 方法就能自动的在消费者线程执行。
+
+***数据消息***
+
+&emsp;&emsp;当消息中含有数据时，Handler 就作为消息的接收者并且负责处理消息。消费者线程通过重写 Handler.handleMessage(Message msg) 方法来处理此数据。有两种方式可以达到此目的，以下将会对此说明。
+
+一种方式是在创建 Handler 时定义 handleMessage 方法。一旦消息队列准备好，就应该定义此方法（Looper.prepare() 之后，Looper.loop() 之前）
+
+处理数据消息的模板代码如下：
+
+{% highlight java%}
+class ConsumerThread extends Thread {
+    Handler mHandler;
+
+    @Override
+    public void run() {
+        Looper.prepare();
+        mHandler = new Handler() {
+            public void handleMessage(Message msg) { 
+                // Process data message here
+            }
+        };)
+        Looper.loop();
+    }
+}
+{% endhighlight%}
+
+在以上的代码中，Handler 是作为匿名内部类定义的，但是用普通类或者内部类亦可。
+
+另一种方便的方式是实现 Handler.Callback 接口：
+
+{% highlight java%}
+public interface Callback {
+    public boolean handleMessage(Message msg);
+}
+{% endhighlight%}
+
+有了 Callback 接口，就没有必要继承 Handler 类。取而代之的是，Callback 的接口实现可以传递给 Handler 的构造函数，以此接收分发过来的消息：
+
+{% highlight java%}
+public class HandlerCallbackActivity extends Activity implements Handler.Callback {
+    Handler mUiHandler;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        mUiHandler = new Handler(this);
+    }
+
+    @Override
+    public boolean handleMessage(Message message) { 
+        // Process messages
+        return true;
+    }
+}
+{% endhighlight%}
+
+如果消息处理完成，Callback.handleMessage 应该返回 true，以此保证对此消息不会有进一步的处理。如果返回 false，消息将会传递给 Handler.handleMessage 作进一步处理。注意 Callback 并没有重写 Handler.handleMessage，而是添加了一个消息的预处理器，此预处理器会在 Handler 自己的 handleMessage 方法之前调用。在 Handler 接收到消息之前，Callback 的预处理器可以打断和改变消息。以下的代码展示了如何用 Callback 打断消息的传递：
+
+{% highlight java%}
+public class HandlerCallbackActivity extends Activity implements Handler.Callback {//1.
+    @Override
+    public boolean handleMessage(Message msg) {//2.
+        switch (msg.what) {
+            case 1:
+                msg.what = 11;
+                return true;
+            default:
+                msg.what = 22;
+                return false;
+        }
+    }
+
+    // Invoked on button click
+    public void onHandlerCallback(View v) {
+        Handler handler = new Handler(this) {
+            @Override
+            public void handleMessage(Message msg) { 
+                // Process message //3.
+            }
+        };
+        handler.sendEmptyMessage(1);//4.
+        handler.sendEmptyMessage(2);//5.
+    }
+}
+{% endhighlight%}
+
+1. HandlerCallbackActivity 实现 Callback 接口打断消息
+2. 如果 msg.what 为1，返回 true（意味着消息得到处理了）；否则，将 msg.what 的值改为 22 并且返回 false（消息未被处理，它会被传递给 Handler 的 handleMessage 的实现）
+3. 在第二个 Handler 内处理消息
+4. 插入 msg.what == 1 的消息，此消息将会被 Callback 打断，因为返回的是 true
+5. 插入 msg.what == 2 的消息，此消息将会在被 Callback 更改后传递给第二个 Handler
+
+#### 移除队列中的消息
 
 
 
