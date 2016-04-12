@@ -60,5 +60,93 @@ IPC 可以是双向的，即服务端进程可以向客户端进程发起远程�
 
 ### 同步 RPC
 
+尽管远程程序调用在服务端是并发执行的，但是客户端发起调用的线程的行为却是同步或者阻塞的。当在 binder 线程上的远程调用执行完毕后（可能会将一个值返回给客户端），发起调用的线程才恢复执行。
+
+让我们以一个只返回远程进程的线程名的实例来说明同步 RPC 以及它的影响。
+
+第一步是在 .aidl 文件内定义接口，也就是通信合约。接口的描述包括了客户端进程可以在服务端进程调用的方法的定义：
+
+{% highlight java %}
+interface ISynchronous {
+    String getThreadNameFast();
+
+    String getThreadNameSlow(long sleep);
+
+    String getThreadNameBlocking();
+
+    String getThreadNameUnblock();
+}
+{% endhighlight %}
+
+Proxy 和 Stub 内部类和 Java 接口是由 aidl 工具生成的；服务端进程重写 Stub 类以实现要支持的功能：
+
+{% highlight java %}
+private final ISynchronous.Stub mBinder = new ISynchronous.Stub() {
+        CountDownLatch mLatch = new CountDownLatch(1);
+
+        @Override
+        public String getThreadNameFast() throws RemoteException {
+            return Thread.currentThread().getName();
+        }
+
+        @Override
+        public String getThreadNameSlow(long sleep) throws RemoteException { // Simulate a slow call
+            SystemClock.sleep(sleep);
+            return Thread.currentThread().getName();
+        }
+
+        @Override
+        public String getThreadNameBlocking() throws RemoteException {
+            mLatch.await();
+            return Thread.currentThread().getName();
+        }
+
+        @Override
+        public String getThreadNameUnblock() throws RemoteException {
+            mLatch.countDown();
+            return Thread.currentThread().getName();
+        }
+    };
+{% endhighlight %}
+
+在这里，所有的方法实现都返回服务端进程中执行的线程的名字，但是设置了不同程度的延迟。getThreadNameFast 方法立即返回结果，而 getThreadNameSlow 方法休眠一段客户端定义的时间间隔，getThreadNameBlocking 通过等待 CountDownLatch 被递减而发生阻塞，该递减必须等待另一个线程调用 getThreadNameUnblock 方法才能完成。
+
+一个可以访问远程进程 binder 对象的客户端进程可以获取 Proxy 的实现并调用将被远程执行的方法：
+
+{% highlight java %}
+ISynchronous mISynchronous = ISynchronous.Stub.asInterface(binder);
+String remoteThreadName = mISynchronous.getThreadNameFast();
+Log.d(TAG,"result = "+remoteThreadName);
+{% endhighlight %}
+
+比如当方法的执行发生在远程进程的一个 binder 线程时，远程调用的结果会被打印为 result = Binder_1。
+
+实现 ISynchronous 接口的 Proxy 被用来调用 binder 线程的远程方法。现在让我们看看使用 RPC 的几种方式：
+
+* 远程调用耗时短的操作
+
+&emsp;&emsp;对 mISynchronous.getThreadNameFast() 的调用返回的速度和运行时能处理这种通信的速度一样快，发起调用的客户端线程只是短暂的阻塞。必要时，来自一个或多个客户端的并发调用会使用多个 binder 线程；但是由于该实现很快会返回结果，binder 线程可以被高效的重复利用。
+
+* 远程调用耗时长的操作
+
+&emsp;&emsp;对  mISynchronous.getThreadNameSlow(long sleep) 的调用在将值返回给客户端之前会运行一段可设置的时间间隔。发起调用的客户端线程在这段时间间隔将会阻塞。
+
+&emsp;&emsp;每个客户端调用都会占用一个 binder 线程很长的时间；其结果是，多个调用可能会耗尽 binder 线程池中的线程。在那种情况下，发起这种远程方法调用的下一个线程会将那个 transaction 放入一个 binder 队列等待，直到有一个 binder 线程可用。
+
+* 调用阻塞方法
+
+&emsp;&emsp;阻塞的线程，如 mISynchronous.getThreadNameBlocking() 所示，在远程方法执行完成之前也会一直阻塞客户端线程。如果多个客户端线程并发地调用服务端进程的阻塞方法，那么 binder 线程池的线程将会很快用完，从而导致其他的客户端线程无法获得远程调用的结果。如果由于阻塞，服务端没有可用的 binder 线程，那么就没有可用的 binder 线程去唤醒阻塞的线程。此时，服务端只能依赖于它自己内部的线程去进行唤醒操作，否则，服务端将不会处理任何的调用，所有等待服务端返回的客户端线程将会永远阻塞。
+
+&emsp;&emsp;阻塞的 Java 线程一般是可以中断的，这就意味着另一个线程可以中断当前阻塞的线程使它完成执行操作。然而，处于客户端进程内的一个线程无法直接访问服务端的线程，所以无法中断远程线程。此外，正在等待同步 RPC 返回的客户端线程也不能捕捉并处理中断。
+
+* 调用含有共享状态的方法
+
+&emsp;&emsp;AIDL 使得客户端进程可以并发地执行服务端进程的方法。并发执行的一般规则为：接口实现负责线程安全。在以上的示例代码中，mISynchronous.getThreadNameBlocking 和 mISynchronous.getThreadNameUnblock 方法共享一个 CountDownLatch，但是没有保护它不被并发的线程访问。因此，一个客户端不能依赖 getThreadNameBlocking 来保持阻塞，直到它自己调用 getThreadNameUnblock。
+
+***注意***一个客户端不能假定一个确定的同步 RPC 是耗时短的，因此就认为从 UI 线程发起调用是安全的；因为服务端进程的实现可能会随时间改变，从而对 UI 线程的响应造成负面影响。所以，用客户端的工作线程发起远程调用，除非你知道远程方法的执行并且它在你的控制之下。
+
+### 异步 RPC
+
+
 	
 
