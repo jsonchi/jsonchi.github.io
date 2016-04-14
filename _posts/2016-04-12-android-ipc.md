@@ -147,6 +147,88 @@ Log.d(TAG,"result = "+remoteThreadName);
 
 ### 异步 RPC
 
+同步 RPC 的优势在于它很简单，易理解且易实现。但是简单是要付出代价的，因为发起调用的线程因此是阻塞的。当然，这也适用于本地进程的调用，但往往客户端的开发者对远程调用执行的代码一无所知。发起调用的线程的阻塞时间也会随着远程代码的实现的改变而改变。因此，同步 RPC 对应用的响应性会有不可预测的影响。一般通过在工作线程执行所有的远程调用来避免这种对 UI 线程的影响。然而，一旦服务端线程阻塞，客户端线程也会跟着阻塞，这就使得线程以及所有它引用的对象保持存活状态，从而导致内存泄漏。
+
+对于异步 RPC，与同步 RPC 在客户端实现异步机制不同，异步 RPC 的远程调用方法被定义为异步方法。客户端初始化一个异步 RPC 的 transaction 并立即返回。Binder 负责将 transaction 交给服务端进程并关闭客户端和服务端的连接。
+
+异步方法必须返回 void，其结果则由回调取回。
+
+异步 RPC 是由 AIDL 的 oneway 关键词定义的，它既可以用于接口也可以用于单独的方法。
+
+* 异步接口，所有的方法都会异步执行：
+
+{% highlight java %}
+oneway interface IAsynchronousInterface {
+    void method1();
+
+    void method2();
+}
+{% endhighlight %}
+
+* 异步方法，该方法异步执行：
+
+{% highlight java %}
+interface IAsynchronousInterface {
+
+    oneway void method1();
+
+    void method2();
+}
+{% endhighlight %}
+
+异步 RPC 最简单的形式是定义一个回调接口，它是一个反向的 RPC，如从服务端到客户端的调用。因此，回调接口也在 AIDL 文件内定义。
+
+以下 AIDL 展示了异步 RPC 的一个简单示例，在这里，远程接口由一个包含回调接口的方法定义：
+
+{% highlight java %}
+interface IAsynchronous1 {
+    oneway void getThreadNameSlow(IAsynchronousCallback callback);
+}
+{% endhighlight %}
+
+服务端远程接口的实现如下，在方法的最后，结果在回调方法内返回：
+
+{% highlight java %}
+    IAsynchronous1.Stub mIAsynchronous1 = new IAsynchronous1.Stub() {
+        @Override
+        public void getThreadNameSlow(IAsynchronousCallback callback) throws RemoteException {
+            // Simulate a slow call
+            String threadName = Thread.currentThread().getName();
+            SystemClock.sleep(10000);
+            callback.handleResult(threadName);
+        }
+    };
+
+{% endhighlight %}
+
+AIDL 回调接口的声明如下：
+
+{% highlight java %}
+interface IAsynchronousCallback {
+    void handleResult(String name);
+}
+{% endhighlight %}
+
+客户端进程的回调接口的实现负责处理结果：
+
+{% highlight java %}
+private IAsynchronousCallback.Stub mCallback = new IAsynchronousCallback.Stub() {
+        @Override
+        public void handleResult(String remoteThreadName) throws RemoteException { // Handle the callback
+            Log.d(TAG, "remoteThreadName = " + name);
+            Log.d(TAG, "currentThreadName = " + Thread.currentThread().getName());
+        }
+    }
+{% endhighlight %}
+
+注意，这里远程和客户端的线程名都被打印为“Binder_1”，但是它们是分别来自客户端进程和服务端进程的不同的 binder 线程。异步的回调将会在一个 binder 线程上被接收。因此，如果回调的实现在客户端进程中与其他线程有共享数据，它应该确保线程安全。
+
+## 用 Binder 进行消息传递
+
+
+
+
+
 
 	
 
