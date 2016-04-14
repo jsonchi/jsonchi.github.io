@@ -225,7 +225,169 @@ private IAsynchronousCallback.Stub mCallback = new IAsynchronousCallback.Stub() 
 
 ## 用 Binder 进行消息传递
 
+Android 平台通过消息传递提供了一种灵活的线程间的通信机制，然而，由于 Message 对象位于线程的共享内存中，所以需要这些线程属于同一个进程内。如果线程在不同的进程内执行，它们就没有共享内存共享消息，取而代之的是，消息会通过 binder 框架实现跨进程传递。为此，你可以使用 **android.os.Messenger** 类将消息发送给远程进程的一个专门的 Handler。Messenger 类使用 binder 框架将 Messenger 的引用传递给客户端进程以及发送 Message 对象。Handler 并不会跨进程传递，取而代之的是，Messenger 来充当中间人的角色。
 
+***图 5-4***展示了进程间的消息传递，一个 Message 可以由 Messenger 发送给另一个进程的一个线程，但是客户端进程必须从服务端进程取回 Messenger 的引用。具体分为以下两步：
+
+* 将 Messenger 的引用发送给客户端进程
+* 发送一个消息到服务端进程。一旦客户端获得 Messenger 的引用， 这步可以按需重复。
+
+![图 5-4](/resources/images/figure-5-4.png)
+
+***图 5-4 用 Messenger 实现进程间通信***
+
+### 单向通信
+
+在接下来的示例中，一个运行在服务端进程的 Service 与在客户端进程的一个 Activity 通信。因此，Service 实现一个 Messenger 并将它传递给 Activity，从而该 Messenger 可以将 Message 对象传递给 Service。Service 类如下：
+
+{% highlight java %}
+public class WorkerThreadService extends Service {
+    WorkerThread mWorkerThread;
+    Messenger mWorkerMessenger;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        mWorkerThread.start();//1.
+    }
+
+    /**
+     * Worker thread has prepared a looper and handler.
+     **/
+    private void onWorkerPrepared() {
+        mWorkerMessenger = new Messenger(mWorkerThread.mWorkerHandler);//2.
+    }
+
+    public IBinder onBind(Intent intent) {//3.
+        return mWorkerMessenger.getBinder();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mWorkerThread.quit();
+    }
+
+    private class WorkerThread extends Thread {
+        Handler mWorkerHandler;
+
+        @Override
+        public void run() {
+            Looper.prepare();
+            mWorkerHandler = new Handler() {
+                @Override
+                public void handleMessage(Message msg) {//4.
+                    // Implement message processing
+                }
+            };
+            onWorkerPrepared();
+            Looper.loop();
+        }
+
+        public void quit() {
+            mWorkerHandler.getLooper().quit();
+        }
+    }
+}
+{% endhighlight %}
+
+1. 消息由一个工作线程处理，该线程在 Service 创建时启动，所有绑定的客户端将会用同一个工作线程。
+2. 工作线程的 Handler 在 Messenger 构造时与其发生关联。该 Handler 将会处理来自客户端进程的消息。
+3. 绑定的客户端接收 Messenger 的 IBinder 对象，这样客户端就可以与在 Service 中的 Handler 通信。
+4. 处理接收的消息。
+
+在客户端这边，Activity 与服务端进程的 Service 绑定并发送消息：
+
+{% highlight java %}
+public class MessengerOnewayActivity extends Activity {
+    private boolean mBound = false;
+    private Messenger mRemoteService = null;
+    private ServiceConnection mRemoteConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            mRemoteService = new Messenger(service);//1.
+            mBound = true;
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            mRemoteService = null;
+            mBound = false;
+        }
+    };
+
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Intent intent = new Intent("com.wifill.eatservice.ACTION_BIND");
+        bindService(intent, mRemoteConnection, Context.BIND_AUTO_CREATE);//2.
+    }
+
+    public void onSendClick(View v) {
+        if (mBound) {
+            mRemoteService.send(Message.obtain(null, 2, 0, 0));//3.
+        }
+    }
+}
+{% endhighlight %}
+
+1. 通过服务端传递过来的 binder 创建 Messenger 实例。
+2. 绑定远程 Service
+3. 当按钮点击时发送一个 Message 
+
+### 双向通信
+
+跨进程传递的 Message 通过数据类型消息的 Message.replyTo 参数保持客户端进程的 Messenger 引用。该引用可以用来创建属于不同进程的两个线程之间的双向通信机制。
+
+以下的代码展示了属于不同进程的 Activity 和 Service 之间的双向通信。Activity 发送一个带有 replyTo 参数的消息给远程的 Serice：
+
+{% highlight java %}
+public void onSendClick(View v) {
+        if (mBound) {
+            try {
+                Message msg = Message.obtain(null, 1, 0, 0);
+                msg.replyTo = new Messenger(new Handler() {//1.
+                    @Override
+                    public void handleMessage(Message msg) {
+                        Log.d(TAG, "Message sent back - msg.what = " + msg.what);
+                    }
+                });
+                mRemoteService.send(msg);
+            } catch (RemoteException e) {
+                Log.e(TAG, e.getMessage());
+            }
+        }
+    }
+{% endhighlight %}
+
+1. 创建一个传递给远程 Service 的 Messenger。该 Messenger 持有负责处理来自其他进程的消息的当前线程的一个 Handler 引用。
+
+Service 接收该 Message，并将一条新的 Message 发回 Activity：
+
+{% highlight java %}
+public void run() {
+        Looper.prepare();
+        mWorkerHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                switch (msg.what) {
+                    case 1:
+                        try {
+                            msg.replyTo.send(Message.obtain(null, msg.what, 0, 0));
+                        } catch (RemoteException e) {
+                            Log.e(TAG, e.getMessage());
+                        }
+                        break;
+                }
+            }
+        };
+        onWorkerPrepared();
+        Looper.loop();
+    }
+{% endhighlight %}
+
+***注意*** Messenger 是与其属于的处理消息的线程的 Handler 结合在一起的。因此，与可以在 binder 线程并行执行的 AIDL 不同，此处任务是顺序执行的。
+
+## 总结
+
+应用内大多数的进程间通信是由高层级的组件在幕后处理的。但在需要时，你可以使用 binder 框架的低层级机制（RPC 和 Messenger）来处理。如果你想通过并行处理请求提高性能，RPC 是首选；如果不是，Messenger 是实现通信的一种更简单的方法，但是它的执行是单线程的。
 
 
 
